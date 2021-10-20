@@ -10,7 +10,7 @@
 #include "App.h"
 
 int main(int argc, char *argv[]) {
-	win32::com_error::throw_or_result(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
+	swal::com_call(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
 
 	ft::App app(argc, argv);
 	return app.run();

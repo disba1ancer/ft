@@ -8,14 +8,10 @@
 #ifndef OS_WIN32_H_
 #define OS_WIN32_H_
 
-#define _WIN32_WINNT  0x0A00
-#include <sdkddkver.h>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <windowsx.h>
+#include <swal/win_headers.h>
+
 #include <initguid.h>
 #include <wchar.h>
-#include <comdef.h>
 #include <wrl/client.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>

@@ -10,8 +10,8 @@
 #include <chrono>
 #include <cmath>
 #include "App.h"
-#include "win32/error.h"
-//#include "win32/gdi.h"
+#include <swal/error.h>
+//#include <swal/gdi.h>
 #include "ft.h"
 #include "extmath.h"
 #include "int24_t.h"
@@ -28,17 +28,17 @@ const TCHAR ftWndClassName[] = TEXT("ftwnd");
 }
 
 App::App(int argc, char *argv[]) :
-argc(argc),
-argv(argv),
-event(nullptr, false, false),
-func_v(maxX),
-func_ftv(maxX),
-//func_fftv(maxX),
-//func_rv(maxX),
-mic_samples(maxX * 2),
-wnd(MyRegisterClass(), hInstance, this),
-time(maxX),
-ftime(0)
+	argc(argc),
+	argv(argv),
+	event(false, false),
+	func_v(maxX),
+	func_ftv(maxX),
+	//func_fftv(maxX),
+	//func_rv(maxX),
+	mic_samples(maxX * 2),
+	wnd(MyRegisterClass(), hInstance, this),
+	time(maxX),
+	ftime(0)
 {
 	initAudio();
 
@@ -46,20 +46,11 @@ ftime(0)
 		func_v[i] = func(0, i / float(40000));
 	}
 
-	ft(func_v.data(), func_ftv.data(), maxX);
-
-	/*for (int i = 0; i < maxX; ++i) {
-		func_rv[i] = 0;
-		for (int j = 0; j < maxX / 2; ++j) {
-			func_rv[i] += std::cos(fract(j * i / float(maxX)) * 2 * Pi + func_ftv[maxX / 2 + j]) * func_ftv[j] * 2.f;
-		}
-	}*/
-
 	{
 		Microsoft::WRL::ComPtr<ID2D1Factory1> d2d1Factory;
-		win32::com_error::throw_or_result(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, IID_PPV_ARGS(&d2d1Factory)));
+		swal::com_call(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, IID_PPV_ARGS(&d2d1Factory)));
 		RECT rc = wnd.GetClientRect();
-		win32::com_error::throw_or_result(
+		swal::com_call(
 			d2d1Factory->CreateHwndRenderTarget(
 				D2D1::RenderTargetProperties(
 					D2D1_RENDER_TARGET_TYPE_DEFAULT,
@@ -70,10 +61,10 @@ ftime(0)
 			)
 		);
 	}
-	win32::com_error::throw_or_result(renderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &brush));
+	swal::com_call(renderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &brush));
 	renderTarget->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
 
-	wnd.Show(win32::ShowCmd::ShowDefault);
+	wnd.Show(swal::ShowCmd::ShowDefault);
 }
 
 int App::run() {
@@ -85,16 +76,18 @@ int App::run() {
 
 	FFT fft(logMaxX);
 
+	fft(func_v.data(), func_ftv.data());
+
 	while (true) {
-		switch (win32::error::throw_or_result(MsgWaitForMultipleObjects(1, event.get_ptr(), FALSE, INFINITE, QS_ALLINPUT), win32::wait_func_error_check)) {
+		switch (swal::winapi_call(MsgWaitForMultipleObjects(1, event.get_ptr(), FALSE, INFINITE, QS_ALLINPUT), swal::wait_func_error_check)) {
 		case WAIT_OBJECT_0:
 			while (true) try {
-				win32::com_error::throw_or_result(captureClient->GetNextPacketSize(&bufPad));
+				swal::com_call(captureClient->GetNextPacketSize(&bufPad));
 				while (bufPad) {
 					{
 						BYTE* t;
 						//win32::com_error::throw_or_result(audioClient->GetCurrentPadding(&bufPad));
-						win32::com_error::throw_or_result(captureClient->GetBuffer(&t, /*bufSize -*/ &bufPad, &flags, nullptr, nullptr));
+						swal::com_call(captureClient->GetBuffer(&t, /*bufSize -*/ &bufPad, &flags, nullptr, nullptr));
 						data = reinterpret_cast<decltype(data)>(t);
 					}
 					for (int i = 0; i < /*(bufSize / 4 * 3) -*/ bufPad; ++i) {
@@ -113,12 +106,12 @@ int App::run() {
 					}
 					ftime = (ftime + bufPad) & (maxX * 2 - 1);
 					time = (time + bufPad) & (maxX * 2 - 1);
-					win32::com_error::throw_or_result(captureClient->ReleaseBuffer(/*bufSize -*/ bufPad));
-					win32::com_error::throw_or_result(captureClient->GetNextPacketSize(&bufPad));
+					swal::com_call(captureClient->ReleaseBuffer(/*bufSize -*/ bufPad));
+					swal::com_call(captureClient->GetNextPacketSize(&bufPad));
 				}
 				break;
-			} catch (win32::com_error& error) {
-				if (error.get() == AUDCLNT_E_DEVICE_INVALIDATED) {
+			} catch (std::system_error& error) {
+				if (error.code() == std::error_code(swal::com_errc(AUDCLNT_E_DEVICE_INVALIDATED))) {
 					initAudio();
 				}
 				else throw;
@@ -140,7 +133,7 @@ int App::run() {
 			break;
 		}
 	} exit:
-	win32::com_error::throw_or_result(audioClient->Stop());
+	swal::com_call(audioClient->Stop());
 
 	return msg.wParam;
 }
@@ -150,7 +143,7 @@ ATOM App::MyRegisterClass() {
 		WNDCLASSEX wcex;
 		wcex.cbSize = sizeof(wcex);
 		wcex.style = CS_HREDRAW | CS_VREDRAW;
-		wcex.lpfnWndProc = win32::ClsWndProc<App, &App::WndProc, ThisIdx>;
+		wcex.lpfnWndProc = swal::ClsWndProc<App, &App::WndProc, ThisIdx>;
 		wcex.cbClsExtra = 0;
 		wcex.cbWndExtra = sizeof(App*);
 		wcex.hInstance = hInstance;
@@ -160,7 +153,7 @@ ATOM App::MyRegisterClass() {
 		wcex.lpszMenuName = nullptr;
 		wcex.lpszClassName = ftWndClassName;
 		wcex.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
-		return win32::error::throw_or_result(RegisterClassEx(&wcex));
+		return swal::winapi_call(RegisterClassEx(&wcex));
 	};
 	static ATOM cls = regCls();
 	return cls;
@@ -170,9 +163,9 @@ void App::initAudio() {
 	while (true) try {
 		Microsoft::WRL::ComPtr<IMMDeviceEnumerator> devEnum;
 		Microsoft::WRL::ComPtr<IMMDevice> device;
-		win32::com_error::throw_or_result(CoCreateInstance(CLSID_MMDeviceEnumerator, nullptr, CLSCTX_ALL, IID_PPV_ARGS(devEnum.ReleaseAndGetAddressOf())));
-		win32::com_error::throw_or_result(devEnum->GetDefaultAudioEndpoint(EDataFlow::eRender, ERole::eConsole, device.ReleaseAndGetAddressOf()));
-		win32::com_error::throw_or_result(device->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, reinterpret_cast<void**>(audioClient.ReleaseAndGetAddressOf())));
+		swal::com_call(CoCreateInstance(CLSID_MMDeviceEnumerator, nullptr, CLSCTX_ALL, IID_PPV_ARGS(devEnum.ReleaseAndGetAddressOf())));
+		swal::com_call(devEnum->GetDefaultAudioEndpoint(EDataFlow::eRender, ERole::eConsole, device.ReleaseAndGetAddressOf()));
+		swal::com_call(device->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, reinterpret_cast<void**>(audioClient.ReleaseAndGetAddressOf())));
 
 		/*WAVEFORMATEXTENSIBLE fmt, *wfex = &fmt;
 		{
@@ -194,22 +187,22 @@ void App::initAudio() {
 
 		{
 			WAVEFORMATEX* t;
-			win32::com_error::throw_or_result(audioClient->GetMixFormat(&t));
+			swal::com_call(audioClient->GetMixFormat(&t));
 			wfex.reset(reinterpret_cast<WAVEFORMATEXTENSIBLE*>(t));
 		}
 		{
 			REFERENCE_TIME def, min;
-			win32::com_error::throw_or_result(audioClient->GetDevicePeriod(&def, &min));
-			win32::com_error::throw_or_result(audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_LOOPBACK, def, 0, &(wfex->Format), nullptr));
+			swal::com_call(audioClient->GetDevicePeriod(&def, &min));
+			swal::com_call(audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_LOOPBACK, def, 0, &(wfex->Format), nullptr));
 		}
-		win32::com_error::throw_or_result(audioClient->GetBufferSize(&bufSize));
-		win32::com_error::throw_or_result(audioClient->GetService(IID_PPV_ARGS(captureClient.ReleaseAndGetAddressOf())));
-		win32::com_error::throw_or_result(audioClient->SetEventHandle(event));
+		swal::com_call(audioClient->GetBufferSize(&bufSize));
+		swal::com_call(audioClient->GetService(IID_PPV_ARGS(captureClient.ReleaseAndGetAddressOf())));
+		swal::com_call(audioClient->SetEventHandle(event));
 
-		win32::com_error::throw_or_result(audioClient->Start());
+		swal::com_call(audioClient->Start());
 		break;
-	} catch (win32::com_error& error) {
-		if (error.get() == AUDCLNT_E_DEVICE_INVALIDATED) continue;
+	} catch (std::system_error& error) {
+		if (error.code() == std::error_code(swal::com_errc(AUDCLNT_E_DEVICE_INVALIDATED))) continue;
 		else throw;
 	}
 }
@@ -276,14 +269,14 @@ LRESULT App::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 			point[(i + 1) & 1] = D2D1::Point2F(i + .5f, -(t * .2f * height) /*+ height*/ + .5f);
 			renderTarget->DrawLine(point[(i) & 1], point[(i + 1) & 1], brush.Get(), 1.f, nullptr);
 		}
-		win32::com_error::throw_or_result(renderTarget->EndDraw());
+		swal::com_call(renderTarget->EndDraw());
 		wnd.ValidateRect();
 		//}auto b = std::chrono::high_resolution_clock::now();
 		//std::cout << (b - a).count() << std::endl;
 		break;
 	}
 	case WM_SIZE:
-		win32::com_error::throw_or_result(renderTarget->Resize(D2D1::SizeU(LOWORD(lParam), HIWORD(lParam))));
+		swal::com_call(renderTarget->Resize(D2D1::SizeU(LOWORD(lParam), HIWORD(lParam))));
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
