@@ -28,6 +28,10 @@ private:
 	static ATOM MyRegisterClass();
 	void initAudio();
 	LRESULT WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	void SetupRender();
+	void MakeRenderTarget();
+	void DetectAndCreateDevice();
+	void DrawFTAndFunc();
 public:
 	static float func(int sec, float fractsec);
 private:
@@ -45,9 +49,21 @@ private:
 	//std::vector<float> func_rv;
 	std::vector<float> mic_samples;
 	swal::Window wnd;
-	Microsoft::WRL::ComPtr<ID2D1HwndRenderTarget> renderTarget;
+	Microsoft::WRL::ComPtr<ID2D1Factory1> d2d1Factory;
+	Microsoft::WRL::ComPtr<ID2D1RenderTarget> renderTarget;
 	Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> brush;
 	int time, ftime;
+	Microsoft::WRL::ComPtr<IDXGISwapChain> swapChain;
+	Microsoft::WRL::ComPtr<ID3D11Device> device;
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
+	Microsoft::WRL::ComPtr<ID3D11RenderTargetView> rtView;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> ftvBuf;
+//	Microsoft::WRL::ComPtr<ID3DBlob> compiledVertShader;
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> vertShader;
+//	Microsoft::WRL::ComPtr<ID3DBlob> compiledFragShader;
+	Microsoft::WRL::ComPtr<ID3D11PixelShader> fragShader;
+	Microsoft::WRL::ComPtr<ID3D11InputLayout> inLayout;
+	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> dsState;
 };
 
 } // namespace ft

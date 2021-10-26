@@ -12,9 +12,9 @@
 
 namespace ft {
 
-constexpr float Pi = std::acos(-1.f);//3.14159265f;//
+constexpr float Pi = 3.14159265f;//std::acos(-1.f);//
 
-inline constexpr float fract(float v) {
+inline /*constexpr*/ float fract(float v) {
 	return v - std::floor(v);
 }
 

@@ -10,12 +10,13 @@
 
 #include <swal/win_headers.h>
 
-#include <initguid.h>
 #include <wchar.h>
 #include <wrl/client.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <d2d1_1.h>
 #include <dwmapi.h>
+#include <d3d11.h>
+#include <d3dcompiler.h>
 
 #endif /* OS_WIN32_H_ */

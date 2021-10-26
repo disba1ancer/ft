@@ -19,7 +19,7 @@ FFT::FFT(unsigned logSize) : logSize(logSize), size(1 << logSize), exps(size / 2
 	}
 }
 
-void FFT::operator()(const float* in, float* out, std::size_t start, std::size_t mask) {
+void FFT::operator()(const float* in, float* out, std::size_t start, std::size_t mask, bool absModDecomp) {
 	if (!mask) mask = size - 1;
 	auto shift = sizeof(std::size_t) * CHAR_BIT - logSize;
 	auto size = this->size;
@@ -42,8 +42,13 @@ void FFT::operator()(const float* in, float* out, std::size_t start, std::size_t
 	}
 	for (std::size_t i = 0; i < size / 2; ++i) {
 		auto a = data[i] + data[size / 2 + i] * exps[i];
-		out[i] = std::abs(a) / size;
-		out[i + size / 2] = std::arg(a);
+		if (absModDecomp) {
+			out[i * 2] = std::abs(a) / size;
+			out[i * 2 + 1] = std::arg(a);
+		} else {
+			out[i * 2] = a.imag() / size;
+			out[i * 2 + 1] = a.real() / size;
+		}
 	}
 }
 

@@ -10,6 +10,7 @@
 #include "App.h"
 
 int main(int argc, char *argv[]) {
+	std::cout.sync_with_stdio(false);
 	swal::com_call(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
 
 	ft::App app(argc, argv);

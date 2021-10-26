@@ -20,7 +20,7 @@ namespace ft {
 class FFT {
 public:
 	FFT(unsigned logSize);
-	void operator()(const float* in, float* out, std::size_t start = 0, std::size_t mask = 0);
+	void operator()(const float* in, float* out, std::size_t start = 0, std::size_t mask = 0, bool absModDecomp = false);
 private:
 	static std::size_t invInc(std::size_t v);
 	static std::size_t calcPos(std::size_t x, std::size_t y, std::size_t sx, std::size_t sy);
