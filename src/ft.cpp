@@ -11,7 +11,7 @@
 
 namespace ft {
 
-FFT::FFT(unsigned logSize) : logSize(logSize), size(1 << logSize), exps(size / 2), data(size) {
+FFT::FFT(std::size_t size) : size(size), exps(size / 2), data(size) {
 	exps[0] = std::complex<float>(1, 0);
 	exps[1] = std::exp(std::complex<float>(0, -fract(1 / float(size)) * 2.f * Pi));
 	for (unsigned i = 2; i < size / 2; ++i) {
@@ -21,11 +21,10 @@ FFT::FFT(unsigned logSize) : logSize(logSize), size(1 << logSize), exps(size / 2
 
 void FFT::operator()(const float* in, float* out, std::size_t start, std::size_t mask, bool absModDecomp) {
 	if (!mask) mask = size - 1;
-	auto shift = sizeof(std::size_t) * CHAR_BIT - logSize;
 	auto size = this->size;
 	for (std::size_t i = 0, elemNum0 = 0, elemNum1 = invInc(elemNum0); i < size; i += 2, elemNum0 = invInc(elemNum1), elemNum1 = invInc(elemNum0)) {
-		auto a = in[(start + (elemNum0 >> shift)) & mask];
-		auto b = in[(start + (elemNum1 >> shift)) & mask];
+		auto a = in[(start + elemNum0) & mask];
+		auto b = in[(start + elemNum1) & mask];
 		data[i] = a + b;
 		data[i + 1] = a - b;
 	}
@@ -42,6 +41,11 @@ void FFT::operator()(const float* in, float* out, std::size_t start, std::size_t
 	}
 	for (std::size_t i = 0; i < size / 2; ++i) {
 		auto a = data[i] + data[size / 2 + i] * exps[i];
+		if (i != 0) {
+			auto t = data[size - i] + data[size / 2 - i] * exps[i];
+			a += std::complex(t.real(), -t.imag());
+//			a *= 2;
+		}
 		if (absModDecomp) {
 			out[i * 2] = std::abs(a) / size;
 			out[i * 2 + 1] = std::arg(a);
@@ -53,7 +57,7 @@ void FFT::operator()(const float* in, float* out, std::size_t start, std::size_t
 }
 
 std::size_t FFT::invInc(std::size_t v) {
-	auto t = (std::size_t(1) << (CHAR_BIT * sizeof(std::size_t) - 1));
+	std::size_t t = size / 2;
 	v ^= t;
 	if (!(v & t)) {
 		do {
