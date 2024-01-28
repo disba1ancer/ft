@@ -31,10 +31,11 @@ static const float4x4 cMat2 = {
 
 VertexOut vertexMain(VertexIn vert, unsigned int vidx: SV_VertexID) {
     VertexOut output;
-    float2 r = float2(dot(vert.in0, vert.in1), vert.in0.y * vert.in1.x - vert.in0.x * vert.in1.y) / (length(vert.in1) + (vidx & 1));
-    float4 pos = { r.x, r.y, float(vidx / 2 + 1) / 4096.f - 1.f, 1.f };
-    output.z = float(vidx / 2 + 1) / 8192.f;
-//    pos = mul(cMat1, pos);
+    //float2 r = float2(dot(vert.in0, vert.in1), vert.in0.y * vert.in1.x - vert.in0.x * vert.in1.y) / (length(vert.in1) + (vidx & 1));
+    float2 r = float2(log10(length(vert.in0)) / 5 + 1, 0);
+    float4 pos = { r.x, r.y, float(vidx / 2 + 1) / 256.f - 1.f, 1.f };
+    output.z = float(vidx/* / 2 + 1*/) / 512.f;
+    pos = mul(cMat1, pos);
     output.pos = mul(cMat2, pos);
     return output;
 }

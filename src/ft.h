@@ -19,13 +19,16 @@ namespace ft {
  */
 class FFT {
 public:
-	FFT(std::size_t size);
-	void operator()(const float* in, float* out, std::size_t start = 0, std::size_t mask = 0, bool absModDecomp = false);
+	FFT(std::size_t maxSize);
+	void operator()(const float* in, float* out, std::size_t start = 0, std::size_t offsetMask = 0, bool absModDecomp = false);
+	void transform(const float* in, float* out, std::size_t start = 0, std::size_t offsetMask = 0, bool unpack = true);
+	void reverse(const float* in, float* out, std::size_t start = 0, std::size_t offsetMask = 0);
 private:
 	std::size_t invInc(std::size_t v);
+	static std::size_t invInc(std::size_t v, std::size_t size);
 	static std::size_t calcPos(std::size_t x, std::size_t y, std::size_t sx, std::size_t sy);
 private:
-	std::size_t size;
+	std::size_t maxSize;
 	std::vector<std::complex<float>> exps;
 	std::vector<std::complex<float>> data;
 };

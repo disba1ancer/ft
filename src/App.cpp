@@ -38,11 +38,11 @@ App::App(int argc, char *argv[]) :
 	argv(argv),
 	event(false, false),
 	func_v(maxX),
-	func_ftv(maxX * 2),
+	func_ftv(maxX * 4),
 	maxXOff(false),
 	//func_fftv(maxX),
 	//func_rv(maxX),
-	mic_samples(maxX * 2),
+	mic_samples(maxX * 4),
 	wnd(MyRegisterClass(), hInstance, this),
 	time(maxX),
 	ftime(0)
@@ -83,12 +83,14 @@ int App::run()
 						data = reinterpret_cast<decltype(data)>(t);
 					}
 					for (unsigned i = 0; i < bufPad; ++i) {
-						mic_samples[ftime] = float(data[i * wfex->Format.nChannels]);
+						mic_samples[ftime * 2] = float(data[i * wfex->Format.nChannels]);
+						mic_samples[ftime * 2 + 1] = float(data[i * wfex->Format.nChannels + 1]);
 						ftime = (ftime + 1) & mask;
 						if ((ftime & mask) == 0) {
 							time = (ftime - maxX) & mask;
 							maxXOff = !maxXOff;
-							fft(mic_samples.data(), func_ftv.data() + (maxX * maxXOff), time, mask, false);
+							fft.transform(mic_samples.data(), func_ftv.data() + (maxX * 2 * maxXOff), time, mask, false);
+//							fft.reverse(func_ftv.data() + (maxX * 2 * maxXOff), func_ftv.data() + (maxX * 2 * maxXOff));
 							wnd.InvalidateRect();
 						}
 					}
@@ -149,7 +151,7 @@ void App::initAudio()
 		Microsoft::WRL::ComPtr<IMMDeviceEnumerator> devEnum;
 		Microsoft::WRL::ComPtr<IMMDevice> device;
 		swal::com_call(CoCreateInstance(CLSID_MMDeviceEnumerator, nullptr, CLSCTX_ALL, IID_PPV_ARGS(devEnum.ReleaseAndGetAddressOf())));
-		swal::com_call(devEnum->GetDefaultAudioEndpoint(EDataFlow::eRender, ERole::eConsole, device.ReleaseAndGetAddressOf()));
+		swal::com_call(devEnum->GetDefaultAudioEndpoint(EDataFlow::eCapture, ERole::eConsole, device.ReleaseAndGetAddressOf()));
 		swal::com_call(device->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, reinterpret_cast<void**>(audioClient.ReleaseAndGetAddressOf())));
 
 		{
@@ -160,7 +162,7 @@ void App::initAudio()
 		{
 			REFERENCE_TIME def, min;
 			swal::com_call(audioClient->GetDevicePeriod(&def, &min));
-			swal::com_call(audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_LOOPBACK, def, 0, &(wfex->Format), nullptr));
+			swal::com_call(audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK /*| AUDCLNT_STREAMFLAGS_LOOPBACK*/, def, 0, &(wfex->Format), nullptr));
 		}
 		swal::com_call(audioClient->GetBufferSize(&bufSize));
 		swal::com_call(audioClient->GetService(IID_PPV_ARGS(captureClient.ReleaseAndGetAddressOf())));
@@ -236,7 +238,7 @@ void App::SetupRender()
 		std::strlen(generated::shaders::shader_frag_hlsl),
 		nullptr, nullptr, nullptr,
 		"fragmentMain",
-		"ps_5_0",
+		"ps_4_0",
 		0, 0,
 		&shaderCode,
 		&log
@@ -255,7 +257,7 @@ void App::SetupRender()
 		std::strlen(generated::shaders::shader_vert_hlsl),
 		nullptr, nullptr, nullptr,
 		"vertexMain",
-		"vs_5_0",
+		"vs_4_0",
 		0, 0,
 		&shaderCode,
 		&log
@@ -324,7 +326,7 @@ void App::DetectAndCreateDevice()
 
 	CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
 
-	static const D3D_FEATURE_LEVEL FeatureLevels[] = { D3D_FEATURE_LEVEL_11_0 };
+	static const D3D_FEATURE_LEVEL FeatureLevels[] = { D3D_FEATURE_LEVEL_10_0 };
 
 	auto rc = wnd.GetRect();
 
@@ -392,7 +394,7 @@ void App::DrawFTAndFunc()
 	brush->SetColor(D2D1::ColorF(D2D1::ColorF::LightGray));
 	point[0] = D2D1::Point2F(-1 + .5f, height / 2);
 	for (int i = 0; i < std::min(maxX, width); ++i) {
-		auto t = mic_samples[(time + i) & (maxX * 2 - 1)];
+		auto t = mic_samples[((time + i) & (maxX * 2 - 1)) * 2 + 1];
 		t = (std::isnan(t) || std::isinf(t) ? 0.f : t);
 		point[(i + 1) & 1] = D2D1::Point2F(i + .5f, (height - (t * height)) / 2);
 		renderTarget->DrawLine(point[(i) & 1], point[(i + 1) & 1], brush.Get(), 1.f, nullptr);
@@ -443,17 +445,17 @@ void App::DrawFTAndFunc()
 	D3D11_MAPPED_SUBRESOURCE subres;
 	swal::com_call(context->Map(ftvBuf.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subres));
 	auto buf = static_cast<VertexIn *>(subres.pData);
-	for (std::size_t i = 0; i < maxX; i += 2) {
-		std::size_t off1 = (i + maxX * maxXOff);
-		std::size_t off2 = (i + maxX * !maxXOff);
+	for (std::size_t i = 0; i < maxX; i += 1) {
+		std::size_t off1 = (i * 2 + maxX * 2 * maxXOff);
+		std::size_t off2 = (i * 2 + maxX * 2 * !maxXOff);
 		buf[i].in0[0] = func_ftv[off1];
 		buf[i].in0[1] = func_ftv[off1 + 1];
 		buf[i].in1[0] = func_ftv[off2];
 		buf[i].in1[1] = func_ftv[off2 + 1];
-		buf[i + 1].in0[0] = 0.f;
-		buf[i + 1].in0[1] = 0.f;
-		buf[i + 1].in1[0] = 0.f;
-		buf[i + 1].in1[1] = 0.f;
+//		buf[i + 1].in0[0] = 0;
+//		buf[i + 1].in0[1] = 0;
+//		buf[i + 1].in1[0] = 0;
+//		buf[i + 1].in1[1] = 0;
 	}
 	context->Unmap(ftvBuf.Get(), 0);
 	UINT stride[2] = { sizeof(VertexIn), sizeof(VertexIn) };
@@ -464,7 +466,7 @@ void App::DrawFTAndFunc()
 	context->OMSetRenderTargets(1, rtView.GetAddressOf(), nullptr);
 	context->IASetVertexBuffers(0, std::size(buffers), buffers, stride, offset);
 	context->IASetInputLayout(inLayout.Get());
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
 	context->VSSetShader(vertShader.Get(), nullptr, 0);
 	context->PSSetShader(fragShader.Get(), nullptr, 0);
 	context->Draw(maxX, 0);
